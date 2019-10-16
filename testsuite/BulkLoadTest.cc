@@ -43,8 +43,8 @@ struct BulkLoadTest : public tpunit::TestFixture
 //        static const bool selfverify = true;
         static const bool debug = true;
 
-        static const unsigned int  leafslots = 20;
-        static const unsigned int  innerslots = 20;
+        static const unsigned int  leafslots = 10;
+        static const unsigned int  innerslots = 10;
     };
 
 //    void test_set_instance(size_t numkeys, unsigned int mod)
