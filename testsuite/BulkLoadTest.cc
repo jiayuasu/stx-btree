@@ -43,8 +43,8 @@ struct BulkLoadTest : public tpunit::TestFixture
 //        static const bool selfverify = true;
         static const bool debug = true;
 
-        static const unsigned int  leafslots = 10;
-        static const unsigned int  innerslots = 10;
+        static const unsigned int  leafslots = 20;
+        static const unsigned int  innerslots = 20;
     };
 
 //    void test_set_instance(size_t numkeys, unsigned int mod)
@@ -110,7 +110,7 @@ struct BulkLoadTest : public tpunit::TestFixture
         unsigned int i = 0;
 
         for (unsigned int i = 0; i < numkeys; i++) {
-//            std::cout << i << " " << pairs[i].first << "\n";
+            std::cout << i << " " << pairs[i].first << "\n";
             btree_type::iterator iterator = bt.find(pairs[i].first);
             ASSERT(iterator.key() == pairs[i].first);
         }
@@ -137,9 +137,9 @@ struct BulkLoadTest : public tpunit::TestFixture
         btree_type bt;
         bt.bulk_load(pairs, pairs + numkeys);
 
-        std::ostringstream os;
-        bt.print(os);
-        std::cout << os.str() << "\n";
+//        std::ostringstream os;
+//        bt.print(os);
+//        std::cout << os.str() << "\n";
 
         unsigned int i = 0;
 
@@ -153,17 +153,20 @@ struct BulkLoadTest : public tpunit::TestFixture
             std::cout << i << " " << 2*i+1 << "\n";
             btree_type::iterator iterator = bt.insert(std::make_pair(2*i+1, 999));
             ASSERT(iterator.key() == 2*i+1);
-//            std::ostringstream os;
-//            bt.print(os);
-//            std::cout << os.str() << "\n";
+            std::ostringstream os;
+            bt.print(os);
+            std::cout << os.str() << "\n";
         }
 //
         int count = 0;
-        for (unsigned int i = 0; i < numkeys * 2; i++) {
+        for (unsigned int i = 4; i < numkeys * 2; i++) {
 //            std::cout << i << " " << pairs[i].first << "\n";
             btree_type::iterator iterator = bt.find(i);
             std::cout << i << " " << iterator.key() << "\n";
             if (iterator.key() != i) {
+//                std::ostringstream os;
+//                bt.print(os);
+//                std::cout << os.str() << "\n";
                 count++;
             }
 //            ASSERT(iterator.key() == i);
@@ -175,8 +178,8 @@ struct BulkLoadTest : public tpunit::TestFixture
     {
 //        for (size_t n = 6; n < 3200; ++n)
 //            test_map_instance(n, 1000);
-//        test_bulk_load(10000, 1000000);
-        test_ordered_insert(300, 1000000);
+//        test_bulk_load(100, 1000000);
+        test_ordered_insert(100, 1000000);
 //        test_map_instance(31996, 10000);
 //        test_map_instance(32000, 10000);
 //        test_map_instance(117649, 100000);

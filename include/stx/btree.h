@@ -1999,6 +1999,9 @@ namespace stx {
         inline int linear_search_check(const node_type* n, key_type key, int m, int data_capacity) const
         {
             // No need to check low_key[m] <= key which is the left bound because this is implicitly specified by the loop.
+//            while (m < data_capacity && !n->check_exists(m) && n->slotkey[m] < std::numeric_limits<key_type>::max()) {
+//            while (m < data_capacity && !n->check_exists(m) && key <= n->slotkey[m] && n->slotkey[m] < std::numeric_limits<key_type>::max()) {
+//            if (key == n->slotkey[m]) return m;
             while (m < data_capacity && !n->check_exists(m) && n->slotkey[m] < std::numeric_limits<key_type>::max()) {
                 m++;
             }
@@ -2578,7 +2581,7 @@ namespace stx {
 
                     if (inner->isfull())
                     {
-//                        assert(false);
+                        assert(false);
                         split_inner_node(inner, splitkey, splitnode, slot);
 
                         BTREE_PRINT("btree::insert_descend done split_inner: putslot: " << slot << " putkey: " << newkey << " upkey: " << *splitkey);
@@ -2637,31 +2640,40 @@ namespace stx {
 //                    std::copy_backward(inner->childid + slot, inner->childid + inner->slotuse + 1,
 //                                       inner->childid + inner->slotuse + 2);
 
-
-                    // Make sure the high key is properly updated
                     if (slot < innerslotmax && !check_exists(inner->bitmap, slot)) {
                         insert_element_at(inner, newkey, newchild, slot);
-                        // Inserting at this inner node does not update child node id
-                        // Change it separately
-                        int newchild_slot = slot + 1;
-                        while (!check_exists(inner->bitmap, newchild_slot) && inner->slotkey[newchild_slot] < std::numeric_limits<key_type>::max()) {
-                            newchild_slot++;
-                        }
-                        inner->childid[newchild_slot] = newchild;
-                        inner->slotuse++;
                     }
                     else {
                         slot = insert_using_shifts(inner, newkey, newchild, slot, 0, innerslotmax);
-                        // Inserting at this inner node does not update child node id
-                        // Change it separately
-                        int newchild_slot = slot + 1;
-                        while (!check_exists(inner->bitmap, newchild_slot) && inner->slotkey[newchild_slot] < std::numeric_limits<key_type>::max()) {
-                            newchild_slot++;
-                        }
-                        inner->childid[newchild_slot] = newchild;
-                        inner->slotuse++;
                     }
-                    if (newkey > inner->high_key) inner->high_key = newkey;
+
+                    // Inserting at this inner node does not update child node id
+                    // Change it separately if necessary
+                    int newchild_slot = slot + 1;
+
+                    while (newchild_slot < innerslotmax && !check_exists(inner->bitmap, newchild_slot) && inner->slotkey[newchild_slot] < std::numeric_limits<key_type>::max()) {
+                        newchild_slot++;
+                    }
+
+                    // Check whether we are updating the node id of the last non-gap position in the inner node
+                    if (newchild_slot == innerslotmax - 1
+                    || (newchild_slot < innerslotmax - 1 && inner->slotkey[newchild_slot + 1] == std::numeric_limits<key_type>::max())) {
+                        // Make sure clean up the old key
+                        inner->slotkey[newchild_slot] = std::numeric_limits<key_type>::max();
+                        // Clean the bit entry in the bitmask
+                        size_t bitmap_pos = newchild_slot >> 6;
+                        size_t bit_pos = newchild_slot - (bitmap_pos << 6);
+                        inner->bitmap[bitmap_pos] &= ~(1L << bit_pos);
+
+                        // Make sure the high key of this inner node is properly updated
+                        if (inner->high_key < newchild->high_key) inner->high_key = newchild->high_key;
+                    }
+                    else {
+                        // Make sure the corresponding key is properly updated
+                        if (inner->slotkey[newchild_slot] < newchild->high_key) inner->slotkey[newchild_slot] = newchild->high_key;
+                    }
+                    inner->childid[newchild_slot] = newchild;
+                    inner->slotuse++;
                 }
 
                 return r;
@@ -2901,7 +2913,7 @@ namespace stx {
         {
             BTREE_ASSERT(leaf->isfull());
 
-            auto packed_data = get_packed_data(leaf);
+            auto packed_data = get_packed_data_2(leaf);
 
             unsigned int mid = (leaf->slotuse >> 1);
 
@@ -2947,7 +2959,7 @@ namespace stx {
         {
             BTREE_ASSERT(inner->isfull());
 
-            auto packed_data = get_packed_data(inner);
+            auto packed_data = get_packed_data_2(inner);
 
             unsigned int mid = (inner->slotuse >> 1);
 
@@ -3002,6 +3014,34 @@ namespace stx {
             return packed_data;
         }
 
+        std::pair<key_type, data_type> * get_packed_data_2(leaf_node* leaf) {
+            std::pair<key_type, data_type> *packed_data = new std::pair<key_type, data_type>[leaf->slotuse];
+//            key_type* packed_keys = new key_type[leaf->slotuse + 1];
+//            data_type* packed_payload = new data_type[leaf->slotuse + 1];
+            packed_data[0].first = leaf->slotkey[0];
+            packed_data[0].second = leaf->slotdata[0];
+            key_type last_key = leaf->slotkey[0];
+            int packed_idx = 1;
+            int actual_idx = 1;
+            while (actual_idx < leafslotmax) {
+                if (leaf->slotkey[actual_idx] > last_key && leaf->slotkey[actual_idx] != std::numeric_limits<key_type >::max()) {
+                    packed_data[packed_idx].first = leaf->slotkey[actual_idx];
+                    packed_data[packed_idx].second = leaf->slotdata[actual_idx];
+                    packed_idx++;
+                    last_key = leaf->slotkey[actual_idx];
+                }
+                actual_idx++;
+            }
+            std::cout << "copying leaf node...\n";
+            for (int i = 0; i < packed_idx; ++i) {
+                std::cout << packed_data[i].first << " ";
+            }
+            std::cout << "\n";
+//            std::cout << packed_idx << " " << leaf->slotuse << "\n";
+            assert(packed_idx == leaf->slotuse);
+            return packed_data;
+        }
+
         std::pair<key_type, node*> * get_packed_data(inner_node* inner) {
             std::pair<key_type, node*> *packed_data = new std::pair<key_type, node*>[inner->slotuse + 1];
 //            key_type* packed_keys = new key_type[leaf->slotuse + 1];
@@ -3021,8 +3061,47 @@ namespace stx {
             packed_data[packed_idx].second = inner->childid[actual_idx];
             packed_idx++;
             actual_idx++;
+            std::cout << "copying inner node...\n";
+            for (int i = 0; i < packed_idx; ++i) {
+                std::cout << packed_data[i].first << " ";
+            }
+            std::cout << "\n";
 //            std::cout << packed_idx << " " << inner->slotuse << "\n";
             assert(packed_idx == inner->slotuse + 1 && actual_idx <= innerslotmax + 1);
+            return packed_data;
+        }
+
+        std::pair<key_type, node*> * get_packed_data_2(inner_node* inner) {
+            std::pair<key_type, node*> *packed_data = new std::pair<key_type, node*>[inner->slotuse];
+//            key_type* packed_keys = new key_type[leaf->slotuse + 1];
+//            data_type* packed_payload = new data_type[leaf->slotuse + 1];
+            packed_data[0].first = inner->slotkey[0];
+            packed_data[0].second = inner->childid[0];
+            key_type last_key = inner->slotkey[0];
+            int packed_idx = 1;
+            int actual_idx = 1;
+            while (actual_idx < innerslotmax) {
+                if (inner->slotkey[actual_idx] > last_key) {
+                    if (inner->slotkey[actual_idx] == std::numeric_limits<key_type >::max()) break;
+                    packed_data[packed_idx].first = inner->slotkey[actual_idx];
+                    packed_data[packed_idx].second = inner->childid[actual_idx];
+                    packed_idx++;
+                    last_key = inner->slotkey[actual_idx];
+                }
+                actual_idx++;
+            }
+            // Make sure we carry the last child id
+            packed_data[packed_idx].first = std::numeric_limits<key_type>::max(); // This key should be a garbage key
+            packed_data[packed_idx].second = inner->childid[actual_idx];
+            packed_idx++;
+            actual_idx++;
+            std::cout << "copying inner node...\n";
+            for (int i = 0; i < packed_idx; ++i) {
+                std::cout << packed_data[i].first << " " << packed_data[i].second << " ";
+            }
+            std::cout << "\n";
+//            std::cout << packed_idx << " " << inner->slotuse << "\n";
+            assert(packed_idx == inner->slotuse + 1);
             return packed_data;
         }
 
@@ -3413,13 +3492,21 @@ namespace stx {
             }
             // Remember the high key value in this node
             node->high_key = last_child_node->high_key;
-            for (int i = last_position + 1; i < innerslotmax; i++) {
-                node->slotkey[i] = std::numeric_limits<key_type>::max();
-                // Use the right-most child node id to fill the all the remaining gaps
-                // These gaps will not be updated
-                node->childid[i] = last_child_node;
+            if (last_position + 1 < innerslotmax) {
+                // Use the right-most child node id to fill the first remaining gap
+                node->slotkey[last_position + 1] = std::numeric_limits<key_type>::max();
+                node->childid[last_position + 1] = last_child_node;
+                for (int i = last_position + 2; i < innerslotmax; i++) {
+                    // Fill in useless values
+                    node->slotkey[i] = std::numeric_limits<key_type>::max();
+                    node->childid[i] = nullptr;
+                }
+                node->childid[innerslotmax] = nullptr;
             }
-            node->childid[innerslotmax] = last_child_node;
+            else {
+                node->childid[innerslotmax] = last_child_node;
+            }
+
 //            std::cout << "finish a inner\n";
         }
 
@@ -3489,13 +3576,20 @@ namespace stx {
             }
             // Remember the high key value in this node
             node->high_key = last_child_node->high_key;
-            for (int i = last_position + 1; i < innerslotmax; i++) {
-                node->slotkey[i] = std::numeric_limits<key_type>::max();
-                // Use the right-most child node id to fill the all the remaining gaps
-                // These gaps will not be updated
-                node->childid[i] = last_child_node;
+            if (last_position + 1 < innerslotmax) {
+                // Use the right-most child node id to fill the first remaining gap
+                node->slotkey[last_position + 1] = std::numeric_limits<key_type>::max();
+                node->childid[last_position + 1] = last_child_node;
+                for (int i = last_position + 2; i < innerslotmax; i++) {
+                    // Fill in useless values
+                    node->slotkey[i] = std::numeric_limits<key_type>::max();
+                    node->childid[i] = nullptr;
+                }
+                node->childid[innerslotmax] = nullptr;
             }
-            node->childid[innerslotmax] = last_child_node;
+            else {
+                node->childid[innerslotmax] = last_child_node;
+            }
 //            std::cout << "finish a inner\n";
         }
 
@@ -4583,28 +4677,36 @@ namespace stx {
 				for (unsigned int slot = 0; slot < innerslotmax; ++slot)
 				{
                     if (!innernode->check_exists(slot)) {
-                        os << "(" << innernode->childid[slot] << ", " << innernode->childid[slot]->high_key << ") " << innernode->slotkey[slot] << "g ";
+                        if (innernode->childid[slot] == nullptr) {
+                            os << "(" << "NULL_NODE" << ", " << "NULL_HIGHKEY" << ") " << innernode->slotkey[slot] << "g ";
+                        }
+                        else os << "(" << innernode->childid[slot] << ", " << innernode->childid[slot]->high_key << ") " << innernode->slotkey[slot] << "g ";
                     }
                     else {
                         os << "(" << innernode->childid[slot] << ", " << innernode->childid[slot]->high_key << ") " << innernode->slotkey[slot] << " ";
                     }
 				}
-                os << "(" << innernode->childid[innerslotmax] << ", " << innernode->childid[innerslotmax]->high_key << ") " << " ";
+				if (innernode->childid[innerslotmax] == nullptr) {
+                    os << "(" << "NULL_NODE" << ", " << "NULL_HIGHKEY" << ") " << " ";
+				}
+				else {
+                    os << "(" << innernode->childid[innerslotmax] << ", " << innernode->childid[innerslotmax]->high_key << ") " << " ";
+                }
                 os << std::endl;
 				if (recursive)
 				{
 					for (unsigned int slot = 0; slot < innerslotmax; ++slot)
 					{
 
-                        print_node(os, innernode->childid[slot], depth + 1, recursive);
-//                        if (!node->check_exists(slot)) {
-//                            print_node(os, innernode->childid[slot], depth + 1, recursive);
-//                        }
-//                        else {
-//                            print_node(os, innernode->childid[slot], depth + 1, recursive);
-//                        }
+//                        print_node(os, innernode->childid[slot], depth + 1, recursive);
+                        if (!innernode->check_exists(slot)) {
+//                            if (innernode->childid[slot] != nullptr) print_node(os, innernode->childid[slot], depth + 1, recursive);
+                        }
+                        else {
+                            print_node(os, innernode->childid[slot], depth + 1, recursive);
+                        }
 					}
-                    print_node(os, innernode->childid[innerslotmax], depth + 1, recursive);
+					if (innernode->childid[innerslotmax] != nullptr) print_node(os, innernode->childid[innerslotmax], depth + 1, recursive);
                 }
 			}
 		}
