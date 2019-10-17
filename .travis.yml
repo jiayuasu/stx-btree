@@ -15,10 +15,11 @@ install:
   - sudo apt-get -qq update
   - if [ "$USE_CXX" == "g++-4.6" ]; then sudo apt-get install g++-4.6; fi
 
-before_script:
-  - export CC="$USE_CC" CXX="$USE_CXX"
-  - mkdir build && cd build && ../configure --enable-speedtest
+# before_script:
+#   - export CC="$USE_CC" CXX="$USE_CXX"
+#   - mkdir build && cd build && ../configure --enable-speedtest
 
 script:
-  - make -j4
-  - make check
+  - cmake. 
+  - make
+  - ./stx_btree

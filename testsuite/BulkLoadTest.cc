@@ -40,20 +40,23 @@ struct BulkLoadTest : public tpunit::TestFixture
     )
     { }
 
-    template <typename KeyType, typename DataType>
-    struct traits_nodebug : stx::btree_default_map_traits<KeyType, DataType>
-    {
-//        static const bool selfverify = true;
-        static const bool debug = true;
+    typedef stx::btree_multimap<int, std::string,
+            std::less<unsigned int>, stx::btree_default_map_traits<int, std::string> > btree_type;
 
-        static const unsigned int  leafslots = 20;
-        static const unsigned int  innerslots = 20;
-    };
+//    template <typename KeyType, typename DataType>
+//    struct traits_nodebug : stx::btree_default_map_traits<KeyType, DataType>
+//    {
+////        static const bool selfverify = true;
+//        static const bool debug = false;
+//
+//        static const unsigned int  leafslots = 20;
+//        static const unsigned int  innerslots = 20;
+//    };
 
     void test_sequential_read(size_t numkeys, unsigned int mod)
     {
         typedef stx::btree_multimap<int, std::string,
-                                    std::less<unsigned int>, traits_nodebug<int, std::string> > btree_type;
+                                    std::less<unsigned int>, stx::btree_default_map_traits<int, std::string> > btree_type;
 
         std::pair<int, std::string> pairs[numkeys];
 
@@ -79,9 +82,6 @@ struct BulkLoadTest : public tpunit::TestFixture
 
     void test_random_read(size_t numkeys, unsigned int mod)
     {
-        typedef stx::btree_multimap<int, std::string,
-                std::less<unsigned int>, traits_nodebug<int, std::string> > btree_type;
-
         std::pair<int, std::string> pairs[numkeys];
 
         srand(34234235);
@@ -106,9 +106,6 @@ struct BulkLoadTest : public tpunit::TestFixture
 
     void test_sequential_insert(size_t numkeys, unsigned int mod)
     {
-        typedef stx::btree_multimap<int, std::string,
-                std::less<unsigned int>, traits_nodebug<int, std::string> > btree_type;
-
         std::pair<int, std::string> pairs[numkeys];
 
         srand(34234235);
@@ -142,16 +139,13 @@ struct BulkLoadTest : public tpunit::TestFixture
 
     void test_ordered_insert(size_t numkeys, unsigned int mod)
     {
-        typedef stx::btree_multimap<int, int,
-                std::less<unsigned int>, traits_nodebug<int, int> > btree_type;
-
-        std::pair<int, int> pairs[numkeys];
+        std::pair<int, std::string> pairs[numkeys];
 
         srand(34234235);
         for (unsigned int i = 0; i < numkeys; i++)
         {
             pairs[i].first = i * 2;
-            pairs[i].second = 999;
+            pairs[i].second = "key";
         }
 
         std::sort(pairs, pairs + numkeys);
@@ -166,7 +160,7 @@ struct BulkLoadTest : public tpunit::TestFixture
             ASSERT(iterator.key() == pairs[i].first);
         }
         for (unsigned int i = 0; i < numkeys; i++) {
-            btree_type::iterator iterator = bt.insert(std::make_pair(2*i+1, 999));
+            btree_type::iterator iterator = bt.insert(std::make_pair(2*i+1, "key"));
             ASSERT(iterator.key() == 2*i+1);
         }
         for (unsigned int i = 0; i < numkeys * 2; i++) {
@@ -177,9 +171,6 @@ struct BulkLoadTest : public tpunit::TestFixture
 
     void test_random_insert(size_t numkeys, unsigned int mod)
     {
-        typedef stx::btree_multimap<int, std::string,
-                std::less<unsigned int>, traits_nodebug<int, std::string> > btree_type;
-
         std::pair<int, std::string> pairs[numkeys];
 
         srand(34234235);
@@ -240,9 +231,6 @@ struct BulkLoadTest : public tpunit::TestFixture
     {
         size_t test_scale = 100000;
 
-        typedef stx::btree_multimap<int, std::string,
-                std::less<unsigned int>, traits_nodebug<int, std::string> > btree_type;
-
         std::pair<int, std::string> pairs[test_scale];
 
         srand(34234235);
@@ -269,9 +257,6 @@ struct BulkLoadTest : public tpunit::TestFixture
     void test_insert_benchmark()
     {
         size_t test_scale = 100000;
-
-        typedef stx::btree_multimap<int, std::string,
-                std::less<unsigned int>, traits_nodebug<int, std::string> > btree_type;
 
         std::pair<int, std::string> pairs[test_scale];
 
