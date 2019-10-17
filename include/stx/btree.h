@@ -1987,19 +1987,6 @@ namespace stx {
                 }
             }
 
-//            if (m < (data_capacity - 1)) {
-//                if (n->slotkey[m] <= key && key < n->slotkey[m + 1]) {
-//                    // Prediction is perfect. Do nothing
-//                    return m;
-//                }
-//            }
-//            else {
-//                if (n->slotkey[m] <= key) {
-//                    // Prediction is perfect. Do nothing
-//                    return m;
-//                }
-//            }
-
             // Continue doubling the bound until it contains the key. Then use binary search.
             int bound = 1;
             int l, r;
@@ -2051,7 +2038,7 @@ namespace stx {
 //            while (m < data_capacity && !n->check_exists(m) && n->slotkey[m] < std::numeric_limits<key_type>::max()) {
 //            while (m < data_capacity && !n->check_exists(m) && key <= n->slotkey[m] && n->slotkey[m] < std::numeric_limits<key_type>::max()) {
 //            if (key == n->slotkey[m]) return m;
-            while (m < data_capacity && !n->check_exists(m) && n->slotkey[m] < std::numeric_limits<key_type>::max()) {
+            while (m < data_capacity && !n->check_exists(m)) {
                 m++;
             }
 
