@@ -1,25 +1,27 @@
-language: cpp
-
-env:
-  matrix:
-    # gcc default build
-    - USE_CC=gcc     USE_CXX=g++
-    # clang default build
-    - USE_CC=clang   USE_CXX=clang++
-
-    # build with older gcc
-    - USE_CC=gcc-4.6 USE_CXX=g++-4.6
-
-install:
-  - sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
-  - sudo apt-get -qq update
-  - if [ "$USE_CXX" == "g++-4.6" ]; then sudo apt-get install g++-4.6; fi
-
-# before_script:
-#   - export CC="$USE_CC" CXX="$USE_CXX"
-#   - mkdir build && cd build && ../configure --enable-speedtest
-
+dist: trusty
+sudo: required
+language:
+  - cpp
+compiler:
+  - gcc
+addons:
+  apt:
+    sources:
+      - ubuntu-toolchain-r-test
+    packages:
+      - gcc-6
+      - g++-6
+      - cmake     
 script:
+  # Link gcc-6 and g++-6 to their standard commands
+  - ln -s /usr/bin/gcc-6 /usr/local/bin/gcc
+  - ln -s /usr/bin/g++-6 /usr/local/bin/g++
+  # Export CC and CXX to tell cmake which compiler to use
+  - export CC=/usr/bin/gcc-6
+  - export CXX=/usr/bin/g++-6
+  # Check versions of gcc, g++ and cmake
+  - gcc -v && g++ -v && cmake --version
+  # Run your build commands next
   - cmake. 
   - make
   - ./stx_btree
