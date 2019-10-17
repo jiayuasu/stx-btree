@@ -44,8 +44,8 @@ struct BulkLoadTest : public tpunit::TestFixture
 //        static const bool selfverify = true;
         static const bool debug = true;
 
-        static const unsigned int  leafslots = 40;
-        static const unsigned int  innerslots = 40;
+        static const unsigned int  leafslots = 20;
+        static const unsigned int  innerslots = 20;
     };
 
     void test_sequential_read(size_t numkeys, unsigned int mod)
@@ -213,7 +213,7 @@ struct BulkLoadTest : public tpunit::TestFixture
     void test_read()
     {
         size_t test_scale = 100000;
-        for (size_t n = 100; n < test_scale; n*=10) {
+        for (size_t n = 100; n <= test_scale; n*=10) {
             test_sequential_read(n, test_scale);
             test_random_read(n, test_scale);
         }
@@ -225,7 +225,7 @@ struct BulkLoadTest : public tpunit::TestFixture
     void test_insert()
     {
         size_t test_scale = 100000;
-        for (size_t n = 100; n < test_scale; n*=10) {
+        for (size_t n = 100; n <= test_scale; n*=10) {
             test_sequential_insert(n, test_scale);
             test_ordered_insert(n, test_scale);
             test_random_insert(n, test_scale);

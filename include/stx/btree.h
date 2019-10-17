@@ -263,8 +263,8 @@ namespace stx {
         /// than this threshold. See notes at
         /// http://panthema.net/2013/0504-STX-B+Tree-Binary-vs-Linear-Search
         static const size_t binsearch_threshold = 256;
-        static const size_t leaf_bitmap_size = std::ceil(leafslots / 64.); // Dirty fix to make it constant
-        static const size_t inner_bitmap_size = std::ceil(innerslots / 64.); // Dirty fix to make it constant
+        static const size_t leaf_bitmap_size = std::ceil(leafslots / 64.);
+        static const size_t inner_bitmap_size = std::ceil(innerslots / 64.);
     };
 
     /** @brief Basic class implementing a base B+ tree data structure in memory.
