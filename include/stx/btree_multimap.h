@@ -551,7 +551,7 @@ public:
     }
 #endif
 
-#ifdef BTREE_DEBUG
+//#ifdef BTREE_DEBUG
 
 public:
     // *** Debug Printing
@@ -569,7 +569,7 @@ public:
     {
         tree.print_leaves(os);
     }
-#endif
+//#endif
 
 public:
     // *** Verification of B+ Tree Invariants

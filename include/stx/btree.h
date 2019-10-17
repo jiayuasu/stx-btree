@@ -50,10 +50,10 @@
 //#include <base.h>
 // *** Debugging Macros
 
-//#ifdef MODEL_BTREE_DEBUG
-
 #include <iostream>
 #include <math.h>
+
+#ifdef BTREE_DEBUG
 
 /// Print out debug information to std::cout if BTREE_DEBUG is defined.
 #define BTREE_PRINT(x)          do { if (debug) (std::cout << x << std::endl); } while (0)
@@ -79,7 +79,7 @@
 /// tree internals. This was added for wxBTreeDemo to be able to draw the
 /// tree.
 #define BTREE_FRIENDS           friend class btree_friend;
-//#endif
+#endif
 
 /// STX - Some Template Extensions namespace
 namespace stx {
@@ -2621,9 +2621,9 @@ namespace stx {
 
                 BTREE_PRINT("btree::insert_descend into " << inner->childid[slot]);
 
-                node* old_childid = inner->childid[slot];
+                node* oldchild = inner->childid[slot];
 
-                std::pair<iterator, bool> r = insert_descend(old_childid,
+                std::pair<iterator, bool> r = insert_descend(oldchild,
                                                              key, value, &newkey, &newchild);
 
                 if (newchild)
@@ -2633,104 +2633,40 @@ namespace stx {
 
                     if (inner->isfull())
                     {
-//                        assert(false);
                         split_inner_node(inner, splitkey, splitnode, slot);
-
+                        auto newinner = static_cast<inner_node*>(*splitnode);
                         BTREE_PRINT("btree::insert_descend done split_inner: putslot: " << slot << " putkey: " << newkey << " upkey: " << *splitkey);
 
-//#ifdef BTREE_DEBUG
+#ifdef BTREE_DEBUG
                         if (debug)
                     {
                         print_node(std::cout, inner);
                         print_node(std::cout, *splitnode);
                     }
-//#endif
-
+#endif
                         // check if insert slot is in the split sibling node
                         BTREE_PRINT("btree::insert_descend switch: " << slot << " > " << inner->slotuse + 1);
 
-                        inner_node* splitinner = static_cast<inner_node*>(*splitnode);
-
-//                        if (newkey > inner->high_key && newkey < splitinner->slotkey[0])
-//                        {
-//                            assert(false);
-//                            // special case when the insert slot matches the split
-//                            // place between the two nodes, then the insert key
-//                            // becomes the split key.
-//
-////                            BTREE_ASSERT(inner->slotuse + 1 < innerslotmax);
-//
-//
-//                            // move the split key and it's datum into the left node
-//                            inner->slotkey[inner->slotuse] = *splitkey;
-//                            inner->childid[inner->slotuse + 1] = splitinner->childid[0];
-//                            inner->slotuse++;
-//
-//                            // set new split key and move corresponding datum into right node
-//                            splitinner->childid[0] = newchild;
-//                            *splitkey = newkey;
-//
-//                            return r;
-//                        }
-//                        else
                         if (newkey > inner->high_key)
                         {
-                            std::cout << "use the new rhs inner node\n";
+                            BTREE_PRINT("btree::insert_descend switching to splitted node " << newinner << " slot " << slot);
                             // in case the insert slot is in the newly create split
-                            // node, we reuse the code below.
-
-//                            slot -= inner->slotuse + 1;
-                            inner = static_cast<inner_node*>(*splitnode);
-                            BTREE_PRINT("btree::insert_descend switching to splitted node " << inner << " slot " << slot);
+                            insert_into_inner(newinner, newkey, oldchild, newchild);
                         }
-                    }
-
-                    // Find the correct place to insert
-                    slot = find_insert_position(inner, newkey);
-                    // move items and put pointer to child node into correct slot
-                    BTREE_ASSERT(slot >= 0 && slot <= innerslotmax);
-
-                    BTREE_ASSERT(check_slot_count(inner));
-                    BTREE_ASSERT(check_bitmap(inner));
-
-                    if (key == 351 && newkey == 376) {
-                        BTREE_PRINT(true);
-                    }
-
-                    if (slot < innerslotmax && !check_exists(inner->bitmap, slot)) {
-                        insert_element_at(inner, newkey, old_childid, slot);
+                        else {
+                            insert_into_inner(inner, newkey, oldchild, newchild);
+                            *splitkey = inner->high_key;
+                        }
+                        BTREE_ASSERT(check_key_childid(inner));
+                        BTREE_ASSERT(check_slot_count(inner));
+                        BTREE_ASSERT(check_bitmap(inner));
+                        BTREE_ASSERT(check_key_childid(newinner));
+                        BTREE_ASSERT(check_slot_count(newinner));
+                        BTREE_ASSERT(check_bitmap(newinner));
                     }
                     else {
-                        slot = insert_using_shifts(inner, newkey, old_childid, slot, 0, innerslotmax);
+                        insert_into_inner(inner, newkey, oldchild, newchild);
                     }
-                    inner->slotuse++;
-                    BTREE_ASSERT(check_bitmap(inner));
-
-                    // Inserting at this inner node does not update child node id
-                    // Change it separately if necessary
-                    int newchild_slot = slot + 1;
-
-                    while (newchild_slot < innerslotmax && !check_exists(inner->bitmap, newchild_slot) && inner->slotkey[newchild_slot] < std::numeric_limits<key_type>::max()) {
-                        newchild_slot++;
-                    }
-                    inner->childid[newchild_slot] = newchild;
-
-                    key_type child_highkey = inner->childid[newchild_slot]->high_key;
-
-                    // Update the child id's corresponding key if necessary
-                    if (inner->slotkey[newchild_slot] < child_highkey) {
-                        inner->slotkey[newchild_slot] = child_highkey;
-                    }
-
-                    if (inner->high_key < child_highkey) {
-                        inner->high_key = child_highkey;
-                    }
-
-
-
-                    BTREE_ASSERT(check_key_childid(inner));
-                    BTREE_ASSERT(check_slot_count(inner));
-                    BTREE_ASSERT(check_bitmap(inner));
                 }
 
                 return r;
@@ -2738,67 +2674,107 @@ namespace stx {
             else // n->isleafnode() == true
             {
                 leaf_node* leaf = static_cast<leaf_node*>(n);
+                auto return_iterator = leaf;
 
-//                if (!allow_duplicates && slot < leafslotmax && key_equal(key, leaf->slotkey[slot])) {
-//                    return std::pair<iterator, bool>(iterator(leaf, slot), false);
-//                }
-
+                int slot = -1;
                 if (leaf->isfull())
                 {
 //                    std::cout << "split a leaf node\n";
 //                    assert(false);
                     split_leaf_node(leaf, splitkey, splitnode);
 
+                    auto newleaf = static_cast<leaf_node*>(*splitnode);
+
                     // check if insert slot is in the split sibling node
                     if (key > leaf->high_key)
                     {
-                        leaf = static_cast<leaf_node*>(*splitnode);
+                        slot = insert_into_leaf(newleaf, key, value);
+                        return_iterator = newleaf;
                         BTREE_PRINT("use the new rhs leaf node" << leaf);
                     }
-                }
-                int slot = find_insert_position(leaf, key);
-//                if (slot == leafslotmax) slot--;// If the insert key is out of right bound, make sure the slot is in-bound.
-
-                // move items and put data item into correct data slot
-                BTREE_ASSERT(slot >= 0 && slot <= leafslotmax);
-
-//                std::copy_backward(leaf->slotkey + slot, leaf->slotkey + leaf->slotuse,
-//                                   leaf->slotkey + leaf->slotuse + 1);
-//                data_copy_backward(leaf->slotdata + slot, leaf->slotdata + leaf->slotuse,
-//                                   leaf->slotdata + leaf->slotuse + 1);
-//
-//                leaf->slotkey[slot] = key;
-
-
-                // Make sure the high key is properly updated
-                if (slot < leafslotmax && !check_exists(leaf->bitmap, slot)) {
-                    insert_element_at(leaf, key, value, slot);
+                    else {
+                        slot = insert_into_leaf(leaf, key, value);
+                        *splitkey = leaf->high_key;
+                    }
+                    BTREE_ASSERT(check_slot_count(leaf));
+                    BTREE_ASSERT(check_bitmap(leaf));
+                    BTREE_ASSERT(check_slot_count(newleaf));
+                    BTREE_ASSERT(check_bitmap(newleaf));
                 }
                 else {
-                    slot = insert_using_shifts(leaf, key, value, slot, 0, leafslotmax + 1);
+                    slot = insert_into_leaf(leaf, key, value);
+                    BTREE_ASSERT(check_slot_count(leaf));
+                    BTREE_ASSERT(check_bitmap(leaf));
                 }
-
-//                if (!used_as_set) leaf->slotdata[slot] = value;
-                leaf->slotuse++;
-
-
-                if (key > leaf->high_key) {
-                    leaf->high_key = key;
-//                    if (splitnode && leaf != *splitnode)
-//                    {
-//                        // special case: the node was split, and the insert is at the
-//                        // last slot of the old node. then the splitkey must be
-//                        // updated.
-//                        *splitkey = key;
-//                    }
-                }
-
-                BTREE_ASSERT(slot >= 0 && slot <= leafslotmax);
-                BTREE_ASSERT(check_slot_count(leaf));
-                BTREE_ASSERT(check_bitmap(leaf));
-
-                return std::pair<iterator, bool>(iterator(leaf, slot), true);
+                return std::pair<iterator, bool>(iterator(return_iterator, slot), true);
             }
+        }
+
+        int insert_into_leaf(leaf_node *leaf, key_type key, data_type value) {
+            int slot = find_insert_position(leaf, key);
+//                if (slot == leafslotmax) slot--;// If the insert key is out of right bound, make sure the slot is in-bound.
+
+            // move items and put data item into correct data slot
+            BTREE_ASSERT(slot >= 0 && slot <= leafslotmax);
+
+            // Make sure the high key is properly updated
+            if (slot < leafslotmax && !check_exists(leaf->bitmap, slot)) {
+                insert_element_at(leaf, key, value, slot);
+            }
+            else {
+                slot = insert_using_shifts(leaf, key, value, slot, 0, leafslotmax);
+            }
+
+            leaf->slotuse++;
+
+            if (key > leaf->high_key) {
+                leaf->high_key = key;
+            }
+            BTREE_ASSERT(slot >= 0 && slot <= leafslotmax);
+            return slot;
+        }
+
+        void insert_into_inner(inner_node *inner, key_type newkey, node* oldchild, node* newchild) {
+            // Find the correct place to insert
+            int slot = find_insert_position(inner, newkey);
+            // move items and put pointer to child node into correct slot
+            BTREE_ASSERT(slot >= 0 && slot <= innerslotmax);
+
+            BTREE_ASSERT(check_slot_count(inner));
+            BTREE_ASSERT(check_bitmap(inner));
+            BTREE_ASSERT(oldchild->high_key == newkey);
+
+            if (slot < innerslotmax && !check_exists(inner->bitmap, slot)) {
+                insert_element_at(inner, newkey, oldchild, slot);
+            }
+            else {
+                slot = insert_using_shifts(inner, newkey, oldchild, slot, 0, innerslotmax);
+            }
+            inner->slotuse++;
+            BTREE_ASSERT(check_bitmap(inner));
+
+            // Inserting at this inner node does not update child node id
+            // Change it separately if necessary
+            int newchild_slot = slot + 1;
+
+            while (newchild_slot < innerslotmax && !check_exists(inner->bitmap, newchild_slot) && inner->slotkey[newchild_slot] < std::numeric_limits<key_type>::max()) {
+                newchild_slot++;
+            }
+            inner->childid[newchild_slot] = newchild;
+
+            key_type child_highkey = inner->childid[newchild_slot]->high_key;
+
+            // Update the child id's corresponding key if necessary
+            if (inner->slotkey[newchild_slot] < child_highkey) {
+                inner->slotkey[newchild_slot] = child_highkey;
+            }
+
+            if (inner->high_key < child_highkey) {
+                inner->high_key = child_highkey;
+            }
+            BTREE_ASSERT(check_key_childid(inner));
+            BTREE_ASSERT(check_slot_count(inner));
+            BTREE_ASSERT(check_bitmap(inner));
         }
         void insert_element_at(leaf_node *node, key_type key, data_type payload, int index) {
             // Actually putting the element
@@ -3001,7 +2977,7 @@ namespace stx {
         {
             BTREE_ASSERT(leaf->isfull());
 
-            auto packed_data = get_packed_data_2(leaf);
+            auto packed_data = get_packed_data(leaf);
 
             unsigned int mid = (leaf->slotuse >> 1);
 
@@ -3019,10 +2995,6 @@ namespace stx {
             else {
                 newleaf->nextleaf->prevleaf = newleaf;
             }
-//            std::copy(leaf->slotkey + mid, leaf->slotkey + leaf->slotuse,
-//                      newleaf->slotkey);
-//            data_copy(leaf->slotdata + mid, leaf->slotdata + leaf->slotuse,
-//                      newleaf->slotdata);
 
             leaf->slotuse = mid;
             leaf->nextleaf = newleaf;
@@ -3047,7 +3019,7 @@ namespace stx {
         {
             BTREE_ASSERT(inner->isfull());
 
-            auto packed_data = get_packed_data_2(inner);
+            auto packed_data = get_packed_data(inner);
 
             unsigned int mid = (inner->slotuse >> 1);
 
@@ -3066,12 +3038,6 @@ namespace stx {
             inner_node* newinner = allocate_inner(inner->level);
 
             newinner->slotuse = inner->slotuse - (mid + 1);
-
-//            std::copy(inner->slotkey + mid + 1, inner->slotkey + inner->slotuse,
-//                      newinner->slotkey);
-//            std::copy(inner->childid + mid + 1, inner->childid + inner->slotuse + 1,
-//                      newinner->childid);
-
 
             bulk_load_inner(newinner, packed_data + mid + 1, packed_data[inner->slotuse].second);
             inner->slotuse = mid;
@@ -3103,40 +3069,13 @@ namespace stx {
                 }
                 actual_idx++;
             }
+#ifdef BTREE_DEBUG
             std::string str = "copying leaf node ";
             for (int i = 0; i < packed_idx; ++i) {
                 str.append(std::to_string(packed_data[i].first)).append(" ");
             }
             BTREE_PRINT(str);
-//            std::cout << packed_idx << " " << leaf->slotuse << "\n";
-            assert(packed_idx == leaf->slotuse);
-            return packed_data;
-        }
-
-        std::pair<key_type, data_type> * get_packed_data_2(leaf_node* leaf) {
-            std::pair<key_type, data_type> *packed_data = new std::pair<key_type, data_type>[leaf->slotuse];
-//            key_type* packed_keys = new key_type[leaf->slotuse + 1];
-//            data_type* packed_payload = new data_type[leaf->slotuse + 1];
-            packed_data[0].first = leaf->slotkey[0];
-            packed_data[0].second = leaf->slotdata[0];
-            key_type last_key = leaf->slotkey[0];
-            int packed_idx = 1;
-            int actual_idx = 1;
-            while (actual_idx < leafslotmax) {
-                if (leaf->slotkey[actual_idx] > last_key && leaf->slotkey[actual_idx] != std::numeric_limits<key_type >::max()) {
-                    packed_data[packed_idx].first = leaf->slotkey[actual_idx];
-                    packed_data[packed_idx].second = leaf->slotdata[actual_idx];
-                    packed_idx++;
-                    last_key = leaf->slotkey[actual_idx];
-                }
-                actual_idx++;
-            }
-            std::string str = "copying leaf node ";
-            for (int i = 0; i < packed_idx; ++i) {
-                str.append(std::to_string(packed_data[i].first)).append(" ");
-            }
-            BTREE_PRINT(str);
-//            std::cout << packed_idx << " " << leaf->slotuse << "\n";
+#endif
             assert(packed_idx == leaf->slotuse);
             return packed_data;
         }
@@ -3160,77 +3099,22 @@ namespace stx {
             packed_data[packed_idx].second = inner->childid[actual_idx];
             packed_idx++;
             actual_idx++;
+#ifdef BTREE_DEBUG
             std::string str = "copying inner node ";
             for (int i = 0; i < packed_idx; ++i) {
                 str.append(std::to_string(packed_data[i].first)).append(" ");
             }
             BTREE_PRINT(str);
+            str = "copying inner keys ";
+            for (int i = 0; i < packed_idx; ++i) {
+                str.append(std::to_string(packed_data[i].second->high_key)).append(" ");
+            }
+            BTREE_PRINT(str);
+#endif
 //            std::cout << packed_idx << " " << inner->slotuse << "\n";
             assert(packed_idx == inner->slotuse + 1 && actual_idx <= innerslotmax + 1);
             return packed_data;
         }
-
-        std::pair<key_type, node*> * get_packed_data_2(inner_node* inner) {
-            std::pair<key_type, node*> *packed_data = new std::pair<key_type, node*>[inner->slotuse + 1];
-//            key_type* packed_keys = new key_type[leaf->slotuse + 1];
-//            data_type* packed_payload = new data_type[leaf->slotuse + 1];
-            packed_data[0].first = inner->slotkey[0];
-            packed_data[0].second = inner->childid[0];
-            key_type last_key = inner->slotkey[0];
-            int packed_idx = 1;
-            int actual_idx = 1;
-            while (actual_idx < innerslotmax) {
-                if (inner->slotkey[actual_idx] > last_key) {
-                    if (inner->slotkey[actual_idx] == std::numeric_limits<key_type >::max()) break;
-                    packed_data[packed_idx].first = inner->slotkey[actual_idx];
-                    packed_data[packed_idx].second = inner->childid[actual_idx];
-                    packed_idx++;
-                    last_key = inner->slotkey[actual_idx];
-                }
-                actual_idx++;
-            }
-            // Make sure we carry the last child id
-            packed_data[packed_idx].first = std::numeric_limits<key_type>::max(); // This key should be a garbage key
-            packed_data[packed_idx].second = inner->childid[actual_idx];
-            packed_idx++;
-            actual_idx++;
-            std::string str = "copying inner node ";
-            for (int i = 0; i < packed_idx; ++i) {
-                str.append(std::to_string(packed_data[i].first)).append(" ");
-            }
-            BTREE_PRINT(str);
-//            std::cout << packed_idx << " " << inner->slotuse << "\n";
-            assert(packed_idx == inner->slotuse + 1);
-            return packed_data;
-        }
-
-//        std::pair<key_type, node*> get_packed_data(inner_node* inner,  newkey, P payload) {
-//            T* packed_keys = new T[header.m_num_keys + 1];
-//            P* packed_payload = new P[header.m_num_keys + 1];
-//            int packed_idx = 0;
-//            int actual_idx = 0;
-//            while (actual_idx < header.data_capacity && header.data_slots[actual_idx].first < key) {
-//                if (check_exists(actual_idx)) {
-//                    packed_keys[packed_idx] = header.data_slots[actual_idx].first;
-//                    packed_payload[packed_idx] = header.data_slots[actual_idx].second;
-//                    packed_idx++;
-//                }
-//                actual_idx++;
-//            }
-//            packed_keys[packed_idx] = key;
-//            packed_payload[packed_idx] = payload;
-//            packed_idx++;
-//            for (int i = actual_idx; i < header.data_capacity; i++) {
-//                if (check_exists(i)) {
-//                    packed_keys[packed_idx] = header.data_slots[i].first;
-//                    packed_payload[packed_idx] = header.data_slots[i].second;
-//                    packed_idx++;
-//                }
-//            }
-//            *num_keys = packed_idx;
-//            return std::make_pair(packed_keys, packed_payload);
-//        }
-
 
         bool check_slot_count(inner_node *inner) {
             key_type last_key = inner->slotkey[0];
@@ -3293,22 +3177,6 @@ namespace stx {
                 if (node->check_exists(i)) num_keys++;
             }
             return num_keys == node->slotuse;
-        }
-
-        key_type find_largest_key(inner_node *node) {
-            for (int i = innerslotmax - 1; i >=0 ; i--) {
-                if(check_exists(node->bitmap, i)) return node->slotkey[i];
-            }
-            // Should never reach here
-            assert(false);
-        }
-
-        key_type find_largest_key(leaf_node *node) {
-            for (int i = leafslotmax - 1; i >=0 ; i--) {
-                if(check_exists(node->bitmap, i)) return node->slotkey[i];
-            }
-            // Should never reach here
-            assert(false);
         }
 
     public:
@@ -3703,6 +3571,7 @@ namespace stx {
             }
             BTREE_ASSERT(check_slot_count(node));
             BTREE_ASSERT(check_bitmap(node));
+            BTREE_ASSERT(check_key_childid(node));
 //            else {
 //                node->childid[innerslotmax] = last_child_node;
 //            }
@@ -4901,10 +4770,7 @@ namespace stx {
 				{
 					for (unsigned int slot = 0; slot < innerslotmax; ++slot)
 					{
-
-//                        print_node(os, innernode->childid[slot], depth + 1, recursive);
                         if (!innernode->check_exists(slot)) {
-//                            if (innernode->childid[slot] != nullptr)
                             if (innernode->slotkey[slot] == std::numeric_limits<key_type>::max() && innernode->childid[slot] != nullptr)
                                 print_node(os, innernode->childid[slot], depth + 1, recursive);
                         }

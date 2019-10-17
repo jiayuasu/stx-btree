@@ -3,6 +3,8 @@ project(stx_btree)
 
 set(CMAKE_CXX_STANDARD 14)
 
+set(CMAKE_CXX_FLAGS "-O3 -ftree-vectorize -march=native")
+
 include_directories(include)
 include_directories(include/stx)
 #include_directories(memprofile)
@@ -21,15 +23,15 @@ add_executable(stx_btree
 #        memprofile/memprofile.h
 #        speedtest/speedtest-tune.cc
 #        speedtest/speedtest.cc
-        testsuite/BoundTest.cc
+#        testsuite/BoundTest.cc
         testsuite/BulkLoadTest.cc
-        testsuite/DumpRestoreTest.cc
-        testsuite/InstantiationTest.cc
-        testsuite/IteratorTest.cc
-        testsuite/LargeTest.cc
-        testsuite/RelationTest.cc
-        testsuite/SimpleTest.cc
-        testsuite/StructureTest.cc
+#        testsuite/DumpRestoreTest.cc
+#        testsuite/InstantiationTest.cc
+#        testsuite/IteratorTest.cc
+#        testsuite/LargeTest.cc
+#        testsuite/RelationTest.cc
+#        testsuite/SimpleTest.cc
+#        testsuite/StructureTest.cc
         testsuite/tpunit.cc
         testsuite/tpunit.h)
 #        wxbtreedemo/WMain.cpp

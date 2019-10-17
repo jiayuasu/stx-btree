@@ -33,8 +33,9 @@ struct BulkLoadTest : public tpunit::TestFixture
 {
     BulkLoadTest() : tpunit::TestFixture(
 //                         TEST(BulkLoadTest::test_set),
-                         TEST(BulkLoadTest::test_map)
-                         )
+                         TEST(BulkLoadTest::test_read),
+                         TEST(BulkLoadTest::test_insert)
+    )
     { }
 
     template <typename KeyType, typename DataType>
@@ -43,58 +44,20 @@ struct BulkLoadTest : public tpunit::TestFixture
 //        static const bool selfverify = true;
         static const bool debug = true;
 
-        static const unsigned int  leafslots = 10;
-        static const unsigned int  innerslots = 10;
+        static const unsigned int  leafslots = 40;
+        static const unsigned int  innerslots = 40;
     };
 
-//    void test_set_instance(size_t numkeys, unsigned int mod)
-//    {
-//        typedef stx::btree_multiset<unsigned int,
-//                                    std::less<unsigned int>, traits_nodebug<unsigned int> > btree_type;
-//
-//        std::vector<unsigned int> keys(numkeys);
-//
-//        srand(34234235);
-//        for (unsigned int i = 0; i < numkeys; i++)
-//        {
-//            keys[i] = rand() % mod;
-//        }
-//
-//        std::sort(keys.begin(), keys.end());
-//
-//        btree_type bt;
-//        bt.bulk_load(keys.begin(), keys.end());
-//
-//        unsigned int i = 0;
-//        for (btree_type::iterator it = bt.begin();
-//             it != bt.end(); ++it, ++i)
-//        {
-//            ASSERT(*it == keys[i]);
-//        }
-//    }
-
-//    void test_set()
-//    {
-//        for (size_t n = 6; n < 3200; ++n)
-//            test_set_instance(n, 1000);
-//
-//        test_set_instance(31996, 10000);
-//        test_set_instance(32000, 10000);
-//        test_set_instance(117649, 100000);
-//    }
-
-    void test_bulk_load(size_t numkeys, unsigned int mod)
+    void test_sequential_read(size_t numkeys, unsigned int mod)
     {
         typedef stx::btree_multimap<int, std::string,
                                     std::less<unsigned int>, traits_nodebug<int, std::string> > btree_type;
 
-//        std::vector<std::pair<int, std::string> > pairs(numkeys);
         std::pair<int, std::string> pairs[numkeys];
 
         srand(34234235);
         for (unsigned int i = 0; i < numkeys; i++)
         {
-//            pairs[i].first = rand() % mod;
             pairs[i].first = 2 * i;
             pairs[i].second = "key";
         }
@@ -103,14 +66,74 @@ struct BulkLoadTest : public tpunit::TestFixture
 
         btree_type bt;
         bt.bulk_load(pairs, pairs + numkeys);
-        std::ostringstream os;
-        bt.print(os);
-        std::cout << os.str() << "\n";
 
         unsigned int i = 0;
 
         for (unsigned int i = 0; i < numkeys; i++) {
-            std::cout << i << " " << pairs[i].first << "\n";
+            btree_type::iterator iterator = bt.find(pairs[i].first);
+            ASSERT(iterator.key() == pairs[i].first);
+        }
+    }
+
+    void test_random_read(size_t numkeys, unsigned int mod)
+    {
+        typedef stx::btree_multimap<int, std::string,
+                std::less<unsigned int>, traits_nodebug<int, std::string> > btree_type;
+
+        std::pair<int, std::string> pairs[numkeys];
+
+        srand(34234235);
+        for (unsigned int i = 0; i < numkeys; i++)
+        {
+            pairs[i].first = rand() % mod;
+            pairs[i].first = 2 * i;
+            pairs[i].second = "key";
+        }
+
+        std::sort(pairs, pairs + numkeys);
+
+        btree_type bt;
+        bt.bulk_load(pairs, pairs + numkeys);
+
+        unsigned int i = 0;
+
+        for (unsigned int i = 0; i < numkeys; i++) {
+            btree_type::iterator iterator = bt.find(pairs[i].first);
+            ASSERT(iterator.key() == pairs[i].first);
+        }
+    }
+
+    void test_sequential_insert(size_t numkeys, unsigned int mod)
+    {
+        typedef stx::btree_multimap<int, std::string,
+                std::less<unsigned int>, traits_nodebug<int, std::string> > btree_type;
+
+        std::pair<int, std::string> pairs[numkeys];
+
+        srand(34234235);
+        srand(34234235);
+        for (unsigned int i = 0; i < numkeys; i++)
+        {
+            pairs[i].first = 3 * i;
+            pairs[i].second = "key";
+        }
+
+        std::sort(pairs, pairs + numkeys);
+
+        btree_type bt;
+        bt.bulk_load(pairs, pairs + numkeys / 2);
+
+        unsigned int i = 0;
+
+        for (unsigned int i = 0; i < numkeys / 2; i++) {
+            btree_type::iterator iterator = bt.find(pairs[i].first);
+            ASSERT(iterator.key() == pairs[i].first);
+        }
+        for (unsigned int i = numkeys / 2; i < numkeys; i++) {
+            btree_type::iterator iterator = bt.insert(std::make_pair(pairs[i].first, pairs[i].second));
+            ASSERT(iterator.key() == pairs[i].first);
+        }
+        for (unsigned int i = 0; i < numkeys; i++) {
             btree_type::iterator iterator = bt.find(pairs[i].first);
             ASSERT(iterator.key() == pairs[i].first);
         }
@@ -121,13 +144,11 @@ struct BulkLoadTest : public tpunit::TestFixture
         typedef stx::btree_multimap<int, int,
                 std::less<unsigned int>, traits_nodebug<int, int> > btree_type;
 
-//        std::vector<std::pair<int, std::string> > pairs(numkeys);
         std::pair<int, int> pairs[numkeys];
 
         srand(34234235);
         for (unsigned int i = 0; i < numkeys; i++)
         {
-//            pairs[i].first = rand() % mod;
             pairs[i].first = i * 2;
             pairs[i].second = 999;
         }
@@ -137,52 +158,81 @@ struct BulkLoadTest : public tpunit::TestFixture
         btree_type bt;
         bt.bulk_load(pairs, pairs + numkeys);
 
-//        std::ostringstream os;
-//        bt.print(os);
-//        std::cout << os.str() << "\n";
-
         unsigned int i = 0;
 
         for (unsigned int i = 0; i < numkeys; i++) {
-//            std::cout << i << " " << pairs[i].first << "\n";
             btree_type::iterator iterator = bt.find(pairs[i].first);
             ASSERT(iterator.key() == pairs[i].first);
         }
-
         for (unsigned int i = 0; i < numkeys; i++) {
-            std::cout << i << " " << 2*i+1 << "\n";
             btree_type::iterator iterator = bt.insert(std::make_pair(2*i+1, 999));
             ASSERT(iterator.key() == 2*i+1);
-            std::ostringstream os;
-            bt.print(os);
-            std::cout << os.str() << "\n";
         }
-//
-        int count = 0;
-        for (unsigned int i = 4; i < numkeys * 2; i++) {
-//            std::cout << i << " " << pairs[i].first << "\n";
+        for (unsigned int i = 0; i < numkeys * 2; i++) {
             btree_type::iterator iterator = bt.find(i);
-            std::cout << i << " " << iterator.key() << "\n";
-            if (iterator.key() != i) {
-//                std::ostringstream os;
-//                bt.print(os);
-//                std::cout << os.str() << "\n";
-                count++;
-            }
-//            ASSERT(iterator.key() == i);
+            ASSERT(iterator.key() == i);
         }
-        std::cout << count << "\n";
     }
 
-    void test_map()
+    void test_random_insert(size_t numkeys, unsigned int mod)
     {
-//        for (size_t n = 6; n < 3200; ++n)
-//            test_map_instance(n, 1000);
-//        test_bulk_load(100000, 1000000);
-        test_ordered_insert(400, 1000000);
-//        test_map_instance(31996, 10000);
-//        test_map_instance(32000, 10000);
-//        test_map_instance(117649, 100000);
+        typedef stx::btree_multimap<int, std::string,
+                std::less<unsigned int>, traits_nodebug<int, std::string> > btree_type;
+
+        std::pair<int, std::string> pairs[numkeys];
+
+        srand(34234235);
+        srand(34234235);
+        for (unsigned int i = 0; i < numkeys; i++)
+        {
+            pairs[i].first = rand() % mod;
+            pairs[i].second = "key";
+        }
+
+        std::sort(pairs, pairs + numkeys / 2);
+
+        btree_type bt;
+        bt.bulk_load(pairs, pairs + numkeys / 2);
+
+        unsigned int i = 0;
+
+        for (unsigned int i = 0; i < numkeys / 2; i++) {
+            btree_type::iterator iterator = bt.find(pairs[i].first);
+            ASSERT(iterator.key() == pairs[i].first);
+        }
+        for (unsigned int i = numkeys / 2; i < numkeys; i++) {
+            btree_type::iterator iterator = bt.insert(pairs[i].first, pairs[i].second);
+            ASSERT(iterator.key() == pairs[i].first);
+        }
+        for (unsigned int i = 0; i < numkeys; i++) {
+            btree_type::iterator iterator = bt.find(pairs[i].first);
+            ASSERT(iterator.key() == pairs[i].first);
+        }
+    }
+
+    void test_read()
+    {
+        size_t test_scale = 100000;
+        for (size_t n = 100; n < test_scale; n*=10) {
+            test_sequential_read(n, test_scale);
+            test_random_read(n, test_scale);
+        }
+//        std::ostringstream os;
+//        bt.print(os);
+//        std::cout << os.str() << "\n";
+    }
+
+    void test_insert()
+    {
+        size_t test_scale = 100000;
+        for (size_t n = 100; n < test_scale; n*=10) {
+            test_sequential_insert(n, test_scale);
+            test_ordered_insert(n, test_scale);
+            test_random_insert(n, test_scale);
+        }
+//        std::ostringstream os;
+//        bt.print(os);
+//        std::cout << os.str() << "\n";
     }
 } _BulkLoadTest;
 
