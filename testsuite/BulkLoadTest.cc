@@ -94,8 +94,8 @@ struct BulkLoadTest : public tpunit::TestFixture
         srand(34234235);
         for (unsigned int i = 0; i < numkeys; i++)
         {
-            pairs[i].first = rand() % mod;
-//            pairs[i].first = i;
+//            pairs[i].first = rand() % mod;
+            pairs[i].first = 2 * i;
             pairs[i].second = "key";
         }
 
@@ -178,8 +178,8 @@ struct BulkLoadTest : public tpunit::TestFixture
     {
 //        for (size_t n = 6; n < 3200; ++n)
 //            test_map_instance(n, 1000);
-//        test_bulk_load(100, 1000000);
-        test_ordered_insert(100, 1000000);
+//        test_bulk_load(100000, 1000000);
+        test_ordered_insert(400, 1000000);
 //        test_map_instance(31996, 10000);
 //        test_map_instance(32000, 10000);
 //        test_map_instance(117649, 100000);
