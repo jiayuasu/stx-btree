@@ -2699,6 +2699,7 @@ namespace stx {
 
         int insert_into_leaf(leaf_node *leaf, key_type key, data_type value) {
             int slot = find_insert_position(leaf, key);
+            if (leaf->slotkey[slot] == key) return slot; // Skip duplicate keys
 //                if (slot == leafslotmax) slot--;// If the insert key is out of right bound, make sure the slot is in-bound.
 
             // move items and put data item into correct data slot
@@ -3176,6 +3177,11 @@ namespace stx {
         {
             BTREE_ASSERT(empty());
 
+            // Remove duplicates
+            size_t actual_count = removeDuplicates(ibegin, iend - ibegin);
+
+            iend = ibegin + actual_count;
+
             m_stats.itemcount = iend - ibegin;
 
             // calculate number of leaves needed, round up.
@@ -3210,7 +3216,7 @@ namespace stx {
                 num_items -= leaf->slotuse;
             }
             BTREE_ASSERT(num_items == 0);
-//			BTREE_ASSERT(it == iend && num_items == 0);
+			BTREE_ASSERT(it == iend && num_items == 0);
 
             // if the btree is so small to fit into one leaf, then we're done.
             if (m_headleaf == m_tailleaf) {
@@ -3315,16 +3321,52 @@ namespace stx {
             size_t bit_pos = pos - (bitmap_pos << 6);
             return bitmap[bitmap_pos] & (1L << bit_pos);
         }
+
+        // Function to remove duplicate elements
+        // This function returns new size of modified
+        // array.
+        int removeDuplicates(key_type arr[], int n)
+        {
+            if (n==0 || n==1)
+                return n;
+
+            // To store index of next unique element
+            int j = 0;
+
+            // Just maintaining another updated index i.e. j
+            for (int i=0; i < n-1; i++)
+                if (arr[i] != arr[i+1])
+                    arr[j++] = arr[i];
+
+            arr[j++] = arr[n-1];
+
+            return j;
+        }
+
+        int removeDuplicates(pair_type arr[], int n)
+        {
+            if (n==0 || n==1)
+                return n;
+
+            // To store index of next unique element
+            int j = 0;
+
+            // Just maintaining another updated index i.e. j
+            for (int i=0; i < n-1; i++)
+                if (arr[i].first != arr[i+1].first)
+                    arr[j++] = arr[i];
+
+            arr[j++] = arr[n-1];
+
+            return j;
+        }
+
         void bulk_load_leaf(leaf_node* node, pair_type key[]) {
             // Clean up the bitmap
             for (int k = 0; k < leaf_bitmap_size; ++k) {
                 node->bitmap[k] = 0;
             }
-//            std::cout << "load a leaf pair_type\n";
-//            if (node->bitmap != nullptr) delete[] node->bitmap;
-//            node->bitmap = new uint64_t[leaf_bitmap_size];
 
-//            node->high_key = key[node->slotuse].first;
             if (node->slotuse == 0) {
                 assert(false);
                 return;
@@ -3387,21 +3429,12 @@ namespace stx {
             }
             BTREE_ASSERT(check_bitmap(node));
             BTREE_ASSERT(check_slot_count(node));
-//            for (int k = 0; k < leafslotmax; ++k) {
-//                std::cout << node->slotkey[k] << " ";
-//            }
-//            std::cout << "\n";
         }
         void bulk_load_leaf(leaf_node* node, key_type key[]) {
             // Clean up the bitmap
             for (int k = 0; k < leaf_bitmap_size; ++k) {
                 node->bitmap[k] = 0;
             }
-//            std::cout << "load a leaf key_type\n";
-//            if (node->bitmap != nullptr) delete[] node->bitmap;
-//            node->bitmap = new uint64_t[leaf_bitmap_size];
-
-//            node->high_key = key[node->slotuse];
             if (node->slotuse == 0) {
                 assert(false);
                 return;

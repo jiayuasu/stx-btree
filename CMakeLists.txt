@@ -40,3 +40,4 @@ add_executable(stx_btree
 #        wxbtreedemo/WMain_wxg.h
 #        wxbtreedemo/WTreeDrawing.cpp
 #        wxbtreedemo/WTreeDrawing.h)
+target_compile_definitions(stx_btree PUBLIC BTREE_DEBUG)

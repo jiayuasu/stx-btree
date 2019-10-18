@@ -205,7 +205,7 @@ struct BulkLoadTest : public tpunit::TestFixture
     void test_read()
     {
         size_t test_scale = 100000;
-        for (size_t n = test_scale; n <= test_scale; n*=10) {
+        for (size_t n = 100; n <= test_scale; n*=10) {
             test_sequential_read(n, test_scale);
             test_random_read(n, test_scale);
         }
