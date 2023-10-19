@@ -29,7 +29,7 @@ A PDF copy of this paper is available on ACM website: https://dl.acm.org/doi/pdf
 
 Figure 9 illustrates the performance of this Model B+ Tree:
 
-<img width="1402" alt="image" src="https://github.com/jiayuasu/stx-btree/assets/10948864/1e9070e0-5382-4999-b72b-071dabaffa0d">
+<img alt="Apache Sedona" src="performance.png" width="1000">
 
 
 ---
