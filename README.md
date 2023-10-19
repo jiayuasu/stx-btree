@@ -1,3 +1,38 @@
+# Machine Learning based B+ Tree
+
+This repo contains a Machine-Learning enhanced B+ Tree index. You can call it `learned B+ Tree` or `Model-based B+ Tree`. It replaces the data format of internal nodes with a linear regression model and a gapped array.
+
+## Design
+
+For each internal node, we first train a linear model on the `<key, pointer>` pairs of data inside the node, then reoganize the positions of the pairs based on the model prediction.
+
+The benefit is two-fold:
+
+1. The binary search in each internal node is replaced by a prediction-based exponential search.
+2. This does not consume more memory space compared to the original B+ Tree implementation. In most cases, a B+ Tree node is only around 50% - 70% full for the sake of insertion.
+
+When a B+ node is close to full, the prediction-based search might be slightly worse than binary search. Because the accuracy of model prediction will downgrade while the performance of exponential search is highly affected by the starting position of the search.
+
+## Usage
+
+This implementation supports bulk-load and insertion.
+
+Please read the test cases: https://github.com/jiayuasu/stx-btree/blob/master/testsuite/BulkLoadTest.cc
+
+## Publication
+
+The performance of this index is studied in our SIGMOD 2020 paper: 
+
+> Ding, Jialin, Umar Farooq Minhas, Jia Yu, Chi Wang, Jaeyoung Do, Yinan Li, Hantian Zhang et al. "ALEX: an updatable adaptive learned index." In Proceedings of the 2020 ACM SIGMOD International Conference on Management of Data, pp. 969-984. 2020.
+
+A PDF copy of this paper is available on ACM website: https://dl.acm.org/doi/pdf/10.1145/3318464.3389711
+
+Figure 9 illustrates the performance of this Model B+ Tree:
+
+<img width="1456" alt="image" src="https://github.com/jiayuasu/stx-btree/assets/10948864/9508c6df-2636-433e-a1d5-f0a8b0859d86">
+
+
+---
 # STX B+ Tree C++ Template Classes v0.9
 
 Author: Timo Bingmann (Mail: tb a-with-circle panthema dot net)<br/>
